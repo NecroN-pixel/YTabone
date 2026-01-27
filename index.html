@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Real-Time Analytics</title>
+    <style>
+        :root {
+            --yt-red: #FF0000;
+            --bg: #050505;
+            --card-bg: rgba(20, 20, 20, 0.85);
+            --accent-blue: #007bff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        /* --- Animasyonlu Arka Plan --- */
+        #bg-canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .floating-cube {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent);
+            border: 1px solid rgba(255,255,255,0.08);
+            animation: floatAnim 25s infinite linear;
+            border-radius: 15px;
+        }
+
+        @keyframes floatAnim {
+            0% { transform: translateY(110vh) rotate(0deg) skew(0deg); opacity: 0; }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% { transform: translateY(-110vh) rotate(720deg) skew(20deg); opacity: 0; }
+        }
+
+        /* --- Ana Panel --- */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(25px) saturate(150%);
+            padding: 50px;
+            border-radius: 50px;
+            text-align: center;
+            width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 50px 100px rgba(0,0,0,0.8);
+            transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+            z-index: 100;
+        }
+
+        /* Full Screen Modu */
+        body.fs-active .glass-card {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            transform: scale(1.2);
+        }
+
+        body.fs-active .ui-element {
+            display: none !important;
+        }
+
+        /* UI Elemanları */
+        .search-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        input {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #333;
+            padding: 15px 20px;
+            border-radius: 18px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--yt-red); box-shadow: 0 0 15px rgba(255,0,0,0.2); }
+
+        button {
+            background: var(--yt-red);
+            color: white;
+            border: none;
+            padding: 0 30px;
+            border-radius: 18px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: 0.3s;
+        }
+
+        button:hover { transform: translateY(-3px); filter: brightness(1.2); }
+
+        /* Profil ve Sayaç */
+        #pfp {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 6px solid var(--yt-red);
+            margin: 0 auto 20px;
+            display: none;
+            object-fit: cover;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .counter-wrap {
+            font-size: 6rem;
+            font-weight: 900;
+            display: flex;
+            justify-content: center;
+            height: 1.2em;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .digit {
+            display: inline-block;
+            animation: dropDigit 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        @keyframes dropDigit {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        .sub-label {
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .footer-tools {
+            margin-top: 40px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .tool-link {
+            font-size: 0.8rem;
+            color: #444;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .tool-link:hover { color: white; }
+
+    </style>
+</head>
+<body class="">
+
+    <div id="bg-canvas"></div>
+
+    <div class="glass-card">
+        <div class="search-group ui-element">
+            <input type="text" id="userInput" placeholder="Kanal adı veya @handle...">
+            <button onclick="handleSearch()">ARA</button>
+        </div>
+
+        <img id="pfp" src="">
+        <h2 id="cName" class="ui-element">Kanal Bekleniyor</h2>
+        
+        <div class="counter-wrap" id="mainCounter">0</div>
+        
+        <div class="sub-label">ABONE SAYISI</div>
+
+        <div class="footer-tools ui-element">
+            <span class="tool-link" onclick="toggleFS()">🖥️ Full Screen Modu</span>
+            <span class="tool-link" onclick="copyLink()">🔗 Paylaş</span>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyArrl6SPjBroMSzpKEsWCrLHzm3PgI1mhw';
+
+        // Küp Oluşturucu
+        function createCubes() {
+            const canvas = document.getElementById('bg-canvas');
+            for(let i=0; i<12; i++) {
+                const cube = document.createElement('div');
+                cube.className = 'floating-cube';
+                const size = Math.random() * 100 + 40;
+                cube.style.width = size + 'px';
+                cube.style.height = size + 'px';
+                cube.style.left = Math.random() * 100 + 'vw';
+                cube.style.animationDelay = Math.random() * 20 + 's';
+                cube.style.transform = `rotate(${Math.random() * 360}deg) skew(${Math.random() * 15}deg)`;
+                canvas.appendChild(cube);
+            }
+        }
+
+        // URL Kontrolü
+        window.onload = () => {
+            createCubes();
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('mode') === 'fs') document.body.classList.add('fs-active');
+            const id = params.get('id');
+            if (id) startTracking(id);
+        };
+
+        async function handleSearch() {
+            const q = document.getElementById('userInput').value;
+            if(!q) return;
+            const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(q)}&maxResults=1&key=${API_KEY}`);
+            const data = await res.json();
+            if(data.items && data.items.length > 0) {
+                const id = data.items[0].id.channelId;
+                updateURL(id);
+                startTracking(id);
+            }
+        }
+
+        function updateURL(id) {
+            const isFS = document.body.classList.contains('fs-active');
+            window.history.pushState({}, '', `?id=${id}${isFS ? '&mode=fs' : ''}`);
+        }
+
+        async function startTracking(id) {
+            const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${id}&key=${API_KEY}`);
+            const data = await res.json();
+            if(data.items && data.items.length > 0) {
+                const info = data.items[0];
+                document.getElementById('cName').innerText = info.snippet.title;
+                document.getElementById('pfp').src = info.snippet.thumbnails.medium.url;
+                document.getElementById('pfp').style.display = 'block';
+                renderCounter(info.statistics.subscriberCount);
+            }
+        }
+
+        function renderCounter(val) {
+            const wrap = document.getElementById('mainCounter');
+            const formatted = Number(val).toLocaleString('tr-TR');
+            wrap.innerHTML = '';
+            formatted.split('').forEach((char, i) => {
+                const span = document.createElement('span');
+                span.className = 'digit';
+                span.innerText = char;
+                span.style.animationDelay = (i * 40) + 'ms';
+                wrap.appendChild(span);
+            });
+        }
+
+        function toggleFS() {
+            document.body.classList.toggle('fs-active');
+            const id = new URLSearchParams(window.location.search).get('id');
+            if(id) updateURL(id);
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Linki Kopyalandı!");
+        }
+
+        // Otomatik Güncelleme (1 Dakika)
+        setInterval(() => {
+            const id = new URLSearchParams(window.location.search).get('id');
+            if(id) startTracking(id);
+        }, 60000);
+    </script>
+</body>
+</html>
