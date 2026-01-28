@@ -3,284 +3,449 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Real-Time Analytics</title>
+    <title>Necron Master Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;600;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     <style>
         :root {
-            --yt-red: #FF0000;
-            --bg: #050505;
-            --card-bg: rgba(20, 20, 20, 0.85);
-            --accent-blue: #007bff;
+            --primary: #ff0033;
+            --dark-bg: #050505;
+            --glass: rgba(20, 20, 20, 0.6);
+            --border: rgba(255, 255, 255, 0.1);
+            --neon-glow: 0 0 20px rgba(255, 0, 51, 0.4);
         }
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; outline: none; }
 
         body {
-            background-color: var(--bg);
+            background-color: var(--dark-bg);
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-family: 'Inter', sans-serif;
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
         }
 
-        /* --- Animasyonlu Arka Plan --- */
-        #bg-canvas {
+        /* --- Dinamik Arka Plan --- */
+        .bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        .shape {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
+            background: linear-gradient(45deg, rgba(255,255,255,0.03), transparent);
+            border: 1px solid rgba(255,255,255,0.05);
+            animation: float 20s infinite linear;
+            border-radius: 20%;
+        }
+        @keyframes float {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.5; }
+            80% { opacity: 0.5; }
+            100% { transform: translateY(-20vh) rotate(360deg); opacity: 0; }
         }
 
-        .floating-cube {
-            position: absolute;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent);
-            border: 1px solid rgba(255,255,255,0.08);
-            animation: floatAnim 25s infinite linear;
-            border-radius: 15px;
-        }
-
-        @keyframes floatAnim {
-            0% { transform: translateY(110vh) rotate(0deg) skew(0deg); opacity: 0; }
-            10% { opacity: 0.4; }
-            90% { opacity: 0.4; }
-            100% { transform: translateY(-110vh) rotate(720deg) skew(20deg); opacity: 0; }
-        }
-
-        /* --- Ana Panel --- */
-        .glass-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(25px) saturate(150%);
-            padding: 50px;
-            border-radius: 50px;
+        /* --- Ana Panel (Master Card) --- */
+        .master-card {
+            background: var(--glass);
+            backdrop-filter: blur(30px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 40px;
+            width: 600px;
             text-align: center;
-            width: 500px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 50px 100px rgba(0,0,0,0.8);
-            transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
-            z-index: 100;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+            z-index: 10;
         }
 
-        /* Full Screen Modu */
-        body.fs-active .glass-card {
+        /* --- Mini Mod (Compact) Stilleri --- */
+        body.mini-mode .master-card {
+            width: 300px;
+            padding: 20px;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            border-radius: 20px;
+        }
+        body.mini-mode .hide-in-mini { display: none !important; }
+        body.mini-mode .counter-big { font-size: 3rem; margin: 5px 0; }
+        body.mini-mode #avatar { width: 60px; height: 60px; border-width: 2px; }
+
+        /* --- Full Screen Modu --- */
+        body.fs-mode .master-card {
             background: transparent;
             border: none;
             box-shadow: none;
-            transform: scale(1.2);
+            width: 90vw;
         }
+        body.fs-mode .hide-in-fs { display: none !important; }
 
-        body.fs-active .ui-element {
-            display: none !important;
-        }
-
-        /* UI Elemanları */
-        .search-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 40px;
-        }
-
-        input {
+        /* --- Arama & Sonuçlar --- */
+        .search-container { position: relative; margin-bottom: 30px; display: flex; gap: 10px; }
+        .search-input {
             flex: 1;
             background: rgba(255,255,255,0.05);
-            border: 1px solid #333;
+            border: 1px solid var(--border);
             padding: 15px 20px;
-            border-radius: 18px;
+            border-radius: 15px;
             color: white;
             font-size: 1rem;
-            outline: none;
-        }
-
-        input:focus { border-color: var(--yt-red); box-shadow: 0 0 15px rgba(255,0,0,0.2); }
-
-        button {
-            background: var(--yt-red);
-            color: white;
-            border: none;
-            padding: 0 30px;
-            border-radius: 18px;
-            cursor: pointer;
-            font-weight: 700;
             transition: 0.3s;
         }
-
-        button:hover { transform: translateY(-3px); filter: brightness(1.2); }
-
-        /* Profil ve Sayaç */
-        #pfp {
-            width: 130px;
-            height: 130px;
-            border-radius: 50%;
-            border: 6px solid var(--yt-red);
-            margin: 0 auto 20px;
-            display: none;
-            object-fit: cover;
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .counter-wrap {
-            font-size: 6rem;
-            font-weight: 900;
-            display: flex;
-            justify-content: center;
-            height: 1.2em;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-
-        .digit {
-            display: inline-block;
-            animation: dropDigit 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-        }
-
-        @keyframes dropDigit {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        @keyframes popIn {
-            from { transform: scale(0); }
-            to { transform: scale(1); }
-        }
-
-        .sub-label {
-            color: #555;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            font-weight: 700;
-            font-size: 0.9rem;
-        }
-
-        .footer-tools {
-            margin-top: 40px;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-
-        .tool-link {
-            font-size: 0.8rem;
-            color: #444;
+        .search-input:focus { border-color: var(--primary); box-shadow: var(--neon-glow); }
+        .search-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 15px;
             cursor: pointer;
-            text-decoration: none;
+            font-size: 1.2rem;
+            transition: 0.3s;
+        }
+        .search-btn:hover { transform: scale(1.05); }
+
+        /* Arama Sonuçları Listesi (Dropdown) */
+        .search-results {
+            position: absolute;
+            top: 105%;
+            left: 0;
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease;
+            z-index: 50;
+        }
+        .search-results.active { max-height: 300px; overflow-y: auto; }
+        .result-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #222;
+            transition: 0.2s;
+        }
+        .result-item:hover { background: #333; }
+        .result-item img { width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; }
+        .result-info h4 { margin: 0; font-size: 0.9rem; }
+        .result-info span { font-size: 0.75rem; color: #888; }
+
+        /* --- Profil ve Sayaç --- */
+        #avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid var(--primary);
+            box-shadow: var(--neon-glow);
+            object-fit: cover;
+            margin-bottom: 10px;
+            transition: 0.5s;
         }
 
-        .tool-link:hover { color: white; }
+        .counter-big {
+            font-size: 5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin: 10px 0;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* --- İstatistik Grid (Views & Videos) --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.03);
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-val { font-size: 1.2rem; font-weight: 700; display: block; }
+        .stat-lbl { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- Canlı Grafik (Simüle Edilmiş Canvas) --- */
+        .chart-container {
+            width: 100%;
+            height: 60px;
+            margin-top: 25px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.2);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- Kontrol Araçları --- */
+        .toolbar {
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .tool-btn {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: #aaa;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+        .tool-btn:hover { background: white; color: black; transform: translateY(-3px); }
+        .tool-btn.active { background: var(--primary); color: white; }
 
     </style>
 </head>
-<body class="">
+<body>
 
-    <div id="bg-canvas"></div>
+    <div class="bg-canvas" id="bgLayer"></div>
 
-    <div class="glass-card">
-        <div class="search-group ui-element">
-            <input type="text" id="userInput" placeholder="Kanal adı veya @handle...">
-            <button onclick="handleSearch()">ARA</button>
+    <div class="master-card" id="card">
+        
+        <div class="search-container hide-in-mini hide-in-fs">
+            <input type="text" class="search-input" id="searchInput" placeholder="Kanal ara (Örn: Barış Özcan)..." onkeypress="handleEnter(event)">
+            <button class="search-btn" onclick="performSearch()"><i class="fas fa-search"></i></button>
+            
+            <div class="search-results" id="resultList"></div>
         </div>
 
-        <img id="pfp" src="">
-        <h2 id="cName" class="ui-element">Kanal Bekleniyor</h2>
+        <img id="avatar" src="https://via.placeholder.com/150/000000/FFFFFF/?text=YT" alt="Logo">
+        <h2 id="chName" class="hide-in-mini">Kanal Seçilmedi</h2>
         
-        <div class="counter-wrap" id="mainCounter">0</div>
-        
-        <div class="sub-label">ABONE SAYISI</div>
+        <div class="counter-big" id="mainCount">0</div>
+        <div style="color:#666; font-size:0.8rem; letter-spacing:3px;" class="hide-in-mini">ABONE</div>
 
-        <div class="footer-tools ui-element">
-            <span class="tool-link" onclick="toggleFS()">🖥️ Full Screen Modu</span>
-            <span class="tool-link" onclick="copyLink()">🔗 Paylaş</span>
+        <div class="stats-grid hide-in-mini">
+            <div class="stat-box">
+                <span class="stat-val" id="viewCount">0</span>
+                <span class="stat-lbl"><i class="fas fa-eye"></i> İzlenme</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="videoCount">0</span>
+                <span class="stat-lbl"><i class="fas fa-video"></i> Video</span>
+            </div>
         </div>
+
+        <div class="chart-container hide-in-mini hide-in-fs">
+            <canvas id="liveChart"></canvas>
+        </div>
+
+        <div class="toolbar hide-in-fs">
+            <button class="tool-btn" onclick="toggleMiniMode()" title="Mini Mod"><i class="fas fa-compress-alt"></i></button>
+            <button class="tool-btn" onclick="toggleFS()" title="Full Screen"><i class="fas fa-expand"></i></button>
+            <button class="tool-btn" onclick="copyLink()" title="Linki Paylaş"><i class="fas fa-share-alt"></i></button>
+        </div>
+
     </div>
 
     <script>
-        const API_KEY = 'AIzaSyArrl6SPjBroMSzpKEsWCrLHzm3PgI1mhw';
-
-        // Küp Oluşturucu
-        function createCubes() {
-            const canvas = document.getElementById('bg-canvas');
-            for(let i=0; i<12; i++) {
-                const cube = document.createElement('div');
-                cube.className = 'floating-cube';
-                const size = Math.random() * 100 + 40;
-                cube.style.width = size + 'px';
-                cube.style.height = size + 'px';
-                cube.style.left = Math.random() * 100 + 'vw';
-                cube.style.animationDelay = Math.random() * 20 + 's';
-                cube.style.transform = `rotate(${Math.random() * 360}deg) skew(${Math.random() * 15}deg)`;
-                canvas.appendChild(cube);
-            }
-        }
-
-        // URL Kontrolü
+        const API_KEY = 'AIzaSyArrl6SPjBroMSzpKEsWCrLHzm3PgI1mhw'; // Senin API Anahtarın
+        let refreshInterval;
+        
+        // Grafik Ayarları
+        const canvas = document.getElementById('liveChart');
+        const ctx = canvas.getContext('2d');
+        let chartData = [];
+        
+        // Başlangıç
         window.onload = () => {
-            createCubes();
+            initBackground();
+            resizeCanvas();
             const params = new URLSearchParams(window.location.search);
-            if (params.get('mode') === 'fs') document.body.classList.add('fs-active');
+            if(params.get('mode') === 'fs') toggleFS();
+            if(params.get('mode') === 'mini') toggleMiniMode();
+            
             const id = params.get('id');
-            if (id) startTracking(id);
+            if(id) {
+                fetchStats(id);
+                startAutoRefresh(id);
+            }
         };
 
-        async function handleSearch() {
-            const q = document.getElementById('userInput').value;
-            if(!q) return;
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(q)}&maxResults=1&key=${API_KEY}`);
-            const data = await res.json();
-            if(data.items && data.items.length > 0) {
-                const id = data.items[0].id.channelId;
-                updateURL(id);
-                startTracking(id);
+        window.onresize = resizeCanvas;
+
+        function handleEnter(e) { if(e.key === 'Enter') performSearch(); }
+
+        // --- 1. Akıllı Arama Sistemi (Liste Getirir) ---
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value;
+            if(!query) return;
+
+            // Listeyi temizle ve kullanıcıya "Aranıyor..." hissi ver
+            const list = document.getElementById('resultList');
+            list.innerHTML = '<div style="padding:15px; color:#aaa;">Aranıyor...</div>';
+            list.classList.add('active');
+
+            try {
+                const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(query)}&maxResults=5&key=${API_KEY}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                list.innerHTML = ''; // Temizle
+
+                if(data.items && data.items.length > 0) {
+                    data.items.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'result-item';
+                        div.innerHTML = `
+                            <img src="${item.snippet.thumbnails.default.url}">
+                            <div class="result-info">
+                                <h4>${item.snippet.title}</h4>
+                                <span>${item.snippet.channelTitle}</span>
+                            </div>
+                        `;
+                        div.onclick = () => selectChannel(item.id.channelId);
+                        list.appendChild(div);
+                    });
+                } else {
+                    list.innerHTML = '<div style="padding:15px;">Sonuç bulunamadı.</div>';
+                }
+            } catch(e) {
+                console.error(e);
             }
         }
 
-        function updateURL(id) {
-            const isFS = document.body.classList.contains('fs-active');
-            window.history.pushState({}, '', `?id=${id}${isFS ? '&mode=fs' : ''}`);
+        // --- 2. Kanal Seçilince ---
+        function selectChannel(id) {
+            // Listeyi kapat
+            document.getElementById('resultList').classList.remove('active');
+            
+            // URL Güncelle
+            const url = new URL(window.location);
+            url.searchParams.set('id', id);
+            window.history.pushState({}, '', url);
+
+            fetchStats(id);
+            startAutoRefresh(id);
         }
 
-        async function startTracking(id) {
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${id}&key=${API_KEY}`);
-            const data = await res.json();
-            if(data.items && data.items.length > 0) {
-                const info = data.items[0];
-                document.getElementById('cName').innerText = info.snippet.title;
-                document.getElementById('pfp').src = info.snippet.thumbnails.medium.url;
-                document.getElementById('pfp').style.display = 'block';
-                renderCounter(info.statistics.subscriberCount);
-            }
+        // --- 3. Verileri Çekme ve UI Güncelleme ---
+        async function fetchStats(id) {
+            try {
+                const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${id}&key=${API_KEY}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if(data.items && data.items.length > 0) {
+                    const info = data.items[0];
+                    const stats = info.statistics;
+
+                    // Text Verileri
+                    document.getElementById('chName').innerText = info.snippet.title;
+                    document.getElementById('avatar').src = info.snippet.thumbnails.medium.url;
+                    
+                    animateNumber(document.getElementById('mainCount'), stats.subscriberCount);
+                    document.getElementById('viewCount').innerText = formatcompact(stats.viewCount);
+                    document.getElementById('videoCount').innerText = formatcompact(stats.videoCount);
+
+                    // Grafiği Güncelle (Veri değişmese bile akış sürsün diye sayı ekliyoruz)
+                    updateChart(Number(stats.subscriberCount));
+                }
+            } catch(e) { console.error("Veri hatası", e); }
         }
 
-        function renderCounter(val) {
-            const wrap = document.getElementById('mainCounter');
-            const formatted = Number(val).toLocaleString('tr-TR');
-            wrap.innerHTML = '';
-            formatted.split('').forEach((char, i) => {
-                const span = document.createElement('span');
-                span.className = 'digit';
-                span.innerText = char;
-                span.style.animationDelay = (i * 40) + 'ms';
-                wrap.appendChild(span);
-            });
+        function startAutoRefresh(id) {
+            if(refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => fetchStats(id), 10000); // 10 saniyede bir kontrol et
         }
 
+        // --- 4. Özellikler: Grafik, Animasyon, Mini Mod ---
+
+        // Sayı Animasyonu
+        function animateNumber(el, value) {
+            const start = Number(el.innerText.replace(/\./g, ''));
+            const end = Number(value);
+            if(start === end) return;
+
+            // Basit interpolasyon
+            el.innerText = end.toLocaleString('tr-TR');
+            // Gelişmiş efekt CSS transition ile halloluyor
+        }
+
+        function formatcompact(num) {
+            return Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(num);
+        }
+
+        // Mini Mod (Compact)
+        function toggleMiniMode() {
+            document.body.classList.toggle('mini-mode');
+            document.body.classList.remove('fs-mode'); // Çakışmayı önle
+        }
+
+        // Full Screen Mod
         function toggleFS() {
-            document.body.classList.toggle('fs-active');
-            const id = new URLSearchParams(window.location.search).get('id');
-            if(id) updateURL(id);
+            document.body.classList.toggle('fs-mode');
+            document.body.classList.remove('mini-mode');
         }
 
+        // Link Kopyala
         function copyLink() {
             navigator.clipboard.writeText(window.location.href);
-            alert("Linki Kopyalandı!");
+            alert("✅ Link Kopyalandı!");
         }
 
-        // Otomatik Güncelleme (1 Dakika)
-        setInterval(() => {
-            const id = new URLSearchParams(window.location.search).get('id');
-            if(id) startTracking(id);
-        }, 60000);
+        // Canvas Grafik Çizimi
+        function updateChart(val) {
+            // Veri dizisini yönet
+            chartData.push(val);
+            if(chartData.length > 50) chartData.shift(); // Son 50 veri kalsın
+
+            // Çizim
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = '#ff0033';
+            ctx.lineWidth = 2;
+            
+            const step = canvas.width / 50;
+            // Grafik hep ortada dursun diye min-max hesapla (basit)
+            const min = Math.min(...chartData) * 0.99; 
+            const max = Math.max(...chartData) * 1.01;
+            const range = max - min || 1;
+
+            chartData.forEach((d, i) => {
+                const x = i * step;
+                const y = canvas.height - ((d - min) / range) * canvas.height;
+                if(i===0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        function resizeCanvas() {
+            canvas.width = document.querySelector('.chart-container').offsetWidth;
+            canvas.height = document.querySelector('.chart-container').offsetHeight;
+        }
+
+        // Arka Plan Şekilleri
+        function initBackground() {
+            const bg = document.getElementById('bgLayer');
+            for(let i=0; i<10; i++) {
+                let div = document.createElement('div');
+                div.className = 'shape';
+                div.style.width = Math.random()*100 + 50 + 'px';
+                div.style.height = div.style.width;
+                div.style.left = Math.random()*100 + '%';
+                div.style.animationDuration = Math.random()*10 + 10 + 's';
+                div.style.animationDelay = Math.random()*5 + 's';
+                bg.appendChild(div);
+            }
+        }
     </script>
 </body>
 </html>
